@@ -6,3 +6,6 @@ __pycache__/
 dist/
 build/
 .env
+
+*.log
+youtube_uploader_mcp.log
