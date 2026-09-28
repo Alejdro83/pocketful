@@ -1,0 +1,33 @@
+{
+  "autoscheduler": {
+    "enabled": true,
+    "reinforcement": false,
+    "schedule": "*/30 * * * *",
+    "autonomy_per_turn": 3,
+    "turns_per_stage": 10,
+    "timeout_s": 300,
+    "retries_on_failure": 2
+  },
+  "seats": {
+    "planner-rwhp": {
+      "model": "claude",
+      "role": "architect_planner",
+      "vision": false
+    },
+    "lisa": {
+      "model": "mimo-v2.6-pro",
+      "role": "coordinator+executor",
+      "vision": true
+    },
+    "gwen": {
+      "model": "gwen-cli-qwen-80b-local",
+      "role": "executor_heavy",
+      "vision": false
+    },
+    "sigyn": {
+      "model": "mimo-v2.6-pro",
+      "role": "executor_light",
+      "vision": false
+    }
+  }
+}

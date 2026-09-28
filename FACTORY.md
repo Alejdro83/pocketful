@@ -37,3 +37,40 @@
 - Every delegation is verified before acceptance
 - Failed subtasks are re-dispatched with corrected context
 - Invariant tests run after every integration checkpoint
+
+
+## 📊 Budgets
+
+See [budgets.json](./budgets.json) for hard cost caps per role.
+
+| Role | Model | Cap | Spent |
+|------|-------|-----|-------|
+| Architect/Planner | Claude | $2.00 | $0.85 |
+| Coordinator | MiMo Pro | $1.50 | $0.45 |
+| Executor (heavy) | Qwen 80B local | $1.50 | $0.30 |
+| Executor (light) | MiMo Pro | $1.50 | $0.25 |
+| **Total** | | **$6.50** | **$1.85** |
+
+**Hard cap behavior:** Hitting cap locks the role. Escalation requires authorizer_user_id.
+
+## ⏰ Autoscheduler
+
+See [scheduler.json](./scheduler.json).
+
+- **Enabled:** Yes
+- **Reinforcement:** Off
+- **Schedule:** Every 30 minutes
+- **Autonomy per turn:** 3 actions
+- **Turns per stage:** 10 max
+- **Timeout:** 300s
+- **Retries on failure:** 2
+
+## 🔄 Session Recovery
+
+See [RECOVERY.md](./RECOVERY.md) for the full session-end recovery report.
+
+**Summary:** 4 stages complete, 82 tests passing, $1.85 spent, 3× 503 failures recovered via fallback execution.
+
+## 📝 Entry URLs
+
+The submission entry URLs are maintained by lablab.ai upon submission. This repository contains all code, evidence, and documentation required for evaluation.

@@ -1,0 +1,29 @@
+{
+  "units": "cost_usd",
+  "note": "Hard caps per role. Hitting cap locks the role and requires authorizer_user_id to unlock.",
+  "roles": {
+    "architect_planner": {
+      "cap_usd": 2.0,
+      "spent_usd": 0.85,
+      "model": "claude"
+    },
+    "coordinator": {
+      "cap_usd": 1.5,
+      "spent_usd": 0.45,
+      "model": "mimo-v2.6-pro"
+    },
+    "executor_heavy": {
+      "cap_usd": 1.5,
+      "spent_usd": 0.3,
+      "model": "gwen-cli-qwen-80b-local"
+    },
+    "executor_light": {
+      "cap_usd": 1.5,
+      "spent_usd": 0.25,
+      "model": "mimo-v2.6-pro"
+    }
+  },
+  "total_cap_usd": 6.5,
+  "total_spent_usd": 1.85,
+  "lock_behavior": "Hard cap \u2192 role locked. Escalation requires authorizer_user_id."
+}

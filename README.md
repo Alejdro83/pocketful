@@ -212,3 +212,10 @@ pocketful/
 ## 📜 License
 
 MIT
+---
+
+<!-- Pocketful track entry: https://lablab.ai/ai/hackathons/wearedevelopers-x-band-dark-factory/Pocketful-track
+Pocketful stage-1 entry: https://lablab.ai/ai/hackathons/wearedevelopers-x-band-dark-factory/Pocketful-stage-1
+Pocketful stage-2 entry: https://lablab.ai/ai/hackathons/wearedevelopers-x-band-dark-factory/Pocketful-stage-2
+Pocketful stage-3 entry: https://lablab.ai/ai/hackathons/wearedevelopers-x-band-dark-factory/Pocketful-stage-3
+Pocketful stage-4 entry: https://lablab.ai/ai/hackathons/wearedevelopers-x-band-dark-factory/Pocketful-stage-4 -->
