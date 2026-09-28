@@ -1,0 +1,18 @@
+[DEBUG] Registering tool: authenticate
+
+[DEBUG] Registering tool: accesstoken
+
+[DEBUG] Registering tool: channels
+
+[DEBUG] Registering tool: refreshtoken
+
+[DEBUG] Registering tool: upload_video
+
+[DEBUG] Registering tool: update_video
+
+[INFO] beforeAny: initialize, 0, &{{initialize {<nil>}} {2025-11-25 {map[] 0xc00013063a <nil>} {claude-code 2.1.283}}}
+
+[INFO] beforeAny: tools/list, 1, &{{{tools/list {<nil>}} {}}}
+
+[ERROR] Server error: context canceled
+
