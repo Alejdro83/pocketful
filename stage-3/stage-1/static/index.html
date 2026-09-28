@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pocketful Wallet</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface-hover: #222632;
+  --border: #2a2e3a;
+  --text: #e4e4e7;
+  --text-dim: #8b8fa3;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --success: #22c55e;
+  --error: #ef4444;
+  --radius: 12px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+header {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
+  padding: 1.5rem 1rem;
+  text-align: center;
+  position: sticky; top: 0; z-index: 10;
+  box-shadow: var(--shadow);
+}
+header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+header p { font-size: 0.85rem; opacity: 0.85; margin-top: 0.25rem; }
+.container { max-width: 520px; margin: 0 auto; padding: 1rem; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.card h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+}
+label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+input, select {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 0.75rem;
+}
+input:focus, select:focus { border-color: var(--accent); }
+.btn-row { display: flex; gap: 0.5rem; }
+button {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-success {
+  background: var(--success);
+  color: #fff;
+}
+.btn-success:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-error {
+  background: var(--error);
+  color: #fff;
+}
+.btn-error:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+
+/* Balance */
+.balance-display {
+  text-align: center;
+  padding: 1.5rem 0;
+}
+.balance-display .amount {
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #22c55e, #4ade80);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.balance-display .label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.25rem;
+}
+.balance-display .account-name {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-top: 0.5rem;
+}
+
+/* Account result */
+.result {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  word-break: break-all;
+}
+.result-success { background: rgba(34,197,94,0.1); color: var(--success); border: 1px solid rgba(34,197,94,0.2); }
+.result-error { background: rgba(239,68,68,0.1); color: var(--error); border: 1px solid rgba(239,68,68,0.2); }
+
+/* Transactions table */
+.tx-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.tx-table th {
+  text-align: left;
+  padding: 0.5rem 0.35rem;
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border);
+}
+.tx-table td {
+  padding: 0.5rem 0.35rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.tx-table tr:last-child td { border-bottom: none; }
+.tx-positive { color: var(--success); }
+.tx-negative { color: var(--error); }
+.tx-empty { text-align: center; padding: 2rem 0; color: var(--text-dim); font-size: 0.85rem; }
+
+/* Toast */
+.toast-container {
+  position: fixed;
+  top: 5rem;
+  right: 1rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.toast {
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  pointer-events: auto;
+  animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+  max-width: 300px;
+  box-shadow: var(--shadow);
+}
+.toast-success { background: var(--success); color: #fff; }
+.toast-error { background: var(--error); color: #fff; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💰 Pocketful</h1>
+  <p>Simple wallet, simple money</p>
+</header>
+
+<div class="container">
+
+  <!-- Create Account -->
+  <div class="card" id="create-section">
+    <h2>Create Account</h2>
+    <label for="new-username">Username</label>
+    <input id="new-username" type="text" placeholder="e.g. alice" autocomplete="off">
+    <button class="btn-primary" id="btn-create" onclick="createAccount()">Create Account</button>
+    <div id="create-result" class="result hidden"></div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="card hidden" id="dashboard">
+    <h2>Account</h2>
+    <label for="account-select">Select Account</label>
+    <select id="account-select" onchange="selectAccount()">
+      <option value="">— choose —</option>
+    </select>
+    <button class="btn-ghost" onclick="loadAccounts()" style="margin-bottom:0.75rem;font-size:0.8rem;">↻ Refresh accounts</button>
+
+    <div class="balance-display">
+      <div class="label">Balance</div>
+      <div class="amount" id="balance-amount">$0.00</div>
+      <div class="account-name" id="balance-name"></div>
+    </div>
+    <button class="btn-ghost" onclick="refreshBalance()">↻ Refresh balance</button>
+  </div>
+
+  <!-- Deposit / Withdraw -->
+  <div class="card hidden" id="depwith-section">
+    <h2>Deposit / Withdraw</h2>
+    <label for="depwith-amount">Amount (USD)</label>
+    <input id="depwith-amount" type="number" min="0.01" step="0.01" placeholder="50.00">
+    <div class="btn-row">
+      <button class="btn-success" onclick="deposit()">↓ Deposit</button>
+      <button class="btn-error" onclick="withdraw()">↑ Withdraw</button>
+    </div>
+    <div id="depwith-result" class="result hidden"></div>
+  </div>
+
+  <!-- Transfer -->
+  <div class="card hidden" id="transfer-section">
+    <h2>Send Money</h2>
+    <label for="transfer-to">To Account</label>
+    <select id="transfer-to">
+      <option value="">— choose —</option>
+    </select>
+    <label for="transfer-amount">Amount (USD)</label>
+    <input id="transfer-amount" type="number" min="0.01" step="0.01" placeholder="25.00">
+    <button class="btn-primary" onclick="transfer()">Send Money</button>
+    <div id="transfer-result" class="result hidden"></div>
+  </div>
+
+  <!-- Transactions -->
+  <div class="card hidden" id="transactions-section">
+    <h2>Transaction History</h2>
+    <div id="tx-body"><p class="tx-empty">No transactions yet</p></div>
+  </div>
+
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+const API = '';  // same origin
+
+// ---- Helpers ----
+function fmt(cents) {
+  return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function uuid() {
+  return crypto.randomUUID ? crypto.randomUUID() :
+    'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+function result(el, msg, ok) {
+  el.textContent = msg;
+  el.className = 'result ' + (ok ? 'result-success' : 'result-error');
+  show(el.id);
+}
+
+function toast(msg, type = 'success') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(API + path, opts);
+  const data = await res.json();
+  if (!res.ok) {
+    const detail = data.detail || JSON.stringify(data);
+    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+  }
+  return data;
+}
+
+function btnLoading(btn, loading) {
+  if (loading) {
+    btn.disabled = true;
+    btn._orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span>' + btn.textContent.trim();
+  } else {
+    btn.disabled = false;
+    if (btn._orig) btn.innerHTML = btn._orig;
+  }
+}
+
+// ---- State ----
+let currentAccountId = null;
+let accounts = [];
+
+// ---- Actions ----
+
+async function loadAccounts() {
+  try {
+    accounts = await api('GET', '/accounts');
+    populateDropdowns();
+    if (accounts.length) show('dashboard');
+    show('dashboard');
+  } catch (e) {
+    toast('Failed to load accounts: ' + e.message, 'error');
+  }
+}
+
+function populateDropdowns() {
+  const sel = document.getElementById('account-select');
+  const toSel = document.getElementById('transfer-to');
+  const curVal = sel.value;
+  const curTo = toSel.value;
+
+  sel.innerHTML = '<option value="">— choose —</option>';
+  toSel.innerHTML = '<option value="">— choose —</option>';
+  accounts.forEach(a => {
+    sel.innerHTML += `<option value="${a.id}">${a.username} (#${a.id})</option>`;
+    toSel.innerHTML += `<option value="${a.id}">${a.username} (#${a.id})</option>`;
+  });
+  if (curVal) sel.value = curVal;
+  if (curTo) toSel.value = curTo;
+}
+
+async function createAccount() {
+  const btn = document.getElementById('btn-create');
+  const username = document.getElementById('new-username').value.trim();
+  if (!username) { toast('Enter a username', 'error'); return; }
+
+  btnLoading(btn, true);
+  try {
+    const acct = await api('POST', '/accounts', { username });
+    result(document.getElementById('create-result'),
+      `✓ Created account: ${acct.username} (ID: ${acct.id})`, true);
+    document.getElementById('new-username').value = '';
+    toast('Account created!');
+    await loadAccounts();
+    // Auto-select new account
+    document.getElementById('account-select').value = acct.id;
+    selectAccount();
+  } catch (e) {
+    result(document.getElementById('create-result'), '✗ ' + e.message, false);
+    toast(e.message, 'error');
+  } finally {
+    btnLoading(btn, false);
+  }
+}
+
+async function selectAccount() {
+  const id = document.getElementById('account-select').value;
+  if (!id) { currentAccountId = null; return; }
+  currentAccountId = parseInt(id);
+  show('depwith-section');
+  show('transfer-section');
+  show('transactions-section');
+  await refreshBalance();
+  await loadTransactions();
+}
+
+async function refreshBalance() {
+  if (!currentAccountId) return;
+  try {
+    const data = await api('GET', `/accounts/${currentAccountId}/balance`);
+    document.getElementById('balance-amount').textContent = fmt(data.balance_cents);
+    const acct = accounts.find(a => a.id === currentAccountId);
+    document.getElementById('balance-name').textContent = acct ? acct.username : '';
+  } catch (e) {
+    toast('Failed to load balance: ' + e.message, 'error');
+  }
+}
+
+async function deposit() {
+  const btn = event.target;
+  const input = document.getElementById('depwith-amount');
+  const dollars = parseFloat(input.value);
+  if (!dollars || dollars <= 0) { toast('Enter a valid amount', 'error'); return; }
+  const cents = Math.round(dollars * 100);
+
+  btnLoading(btn, true);
+  try {
+    const res = await fetch(API + `/accounts/${currentAccountId}/deposit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': uuid() },
+      body: JSON.stringify({ amount_cents: cents }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
+
+    result(document.getElementById('depwith-result'),
+      `✓ Deposited ${fmt(cents)} — TX #${data.transaction_id}`, true);
+    toast(`Deposited ${fmt(cents)}`);
+    input.value = '';
+    await refreshBalance();
+    await loadTransactions();
+  } catch (e) {
+    result(document.getElementById('depwith-result'), '✗ ' + e.message, false);
+    toast(e.message, 'error');
+  } finally {
+    btnLoading(btn, false);
+  }
+}
+
+async function withdraw() {
+  const btn = event.target;
+  const input = document.getElementById('depwith-amount');
+  const dollars = parseFloat(input.value);
+  if (!dollars || dollars <= 0) { toast('Enter a valid amount', 'error'); return; }
+  const cents = Math.round(dollars * 100);
+
+  btnLoading(btn, true);
+  try {
+    const res = await fetch(API + `/accounts/${currentAccountId}/withdraw`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': uuid() },
+      body: JSON.stringify({ amount_cents: cents }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
+
+    result(document.getElementById('depwith-result'),
+      `✓ Withdrew ${fmt(cents)} — TX #${data.transaction_id}`, true);
+    toast(`Withdrew ${fmt(cents)}`);
+    input.value = '';
+    await refreshBalance();
+    await loadTransactions();
+  } catch (e) {
+    result(document.getElementById('depwith-result'), '✗ ' + e.message, false);
+    toast(e.message, 'error');
+  } finally {
+    btnLoading(btn, false);
+  }
+}
+
+async function transfer() {
+  const btn = event.target;
+  const toId = document.getElementById('transfer-to').value;
+  const dollars = parseFloat(document.getElementById('transfer-amount').value);
+  if (!toId) { toast('Select a destination account', 'error'); return; }
+  if (!dollars || dollars <= 0) { toast('Enter a valid amount', 'error'); return; }
+  const cents = Math.round(dollars * 100);
+
+  btnLoading(btn, true);
+  try {
+    const res = await fetch(API + '/transfers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': uuid() },
+      body: JSON.stringify({
+        from_account_id: currentAccountId,
+        to_account_id: parseInt(toId),
+        amount_cents: cents,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
+
+    result(document.getElementById('transfer-result'),
+      `✓ Sent ${fmt(cents)} to account #${toId} — TX #${data.transaction_id}`, true);
+    toast(`Sent ${fmt(cents)}`);
+    document.getElementById('transfer-amount').value = '';
+    await refreshBalance();
+    await loadTransactions();
+  } catch (e) {
+    result(document.getElementById('transfer-result'), '✗ ' + e.message, false);
+    toast(e.message, 'error');
+  } finally {
+    btnLoading(btn, false);
+  }
+}
+
+async function loadTransactions() {
+  if (!currentAccountId) return;
+  const el = document.getElementById('tx-body');
+  try {
+    const data = await api('GET', `/accounts/${currentAccountId}/transactions`);
+    const txs = data.transactions || [];
+    if (!txs.length) {
+      el.innerHTML = '<p class="tx-empty">No transactions yet</p>';
+      return;
+    }
+    let html = '<table class="tx-table"><thead><tr>';
+    html += '<th>Type</th><th>Amount</th><th>TX ID</th><th>Time</th>';
+    html += '</tr></thead><tbody>';
+    txs.forEach(tx => {
+      const cls = tx.amount_cents >= 0 ? 'tx-positive' : 'tx-negative';
+      const sign = tx.amount_cents >= 0 ? '+' : '';
+      const time = tx.created_at ? new Date(tx.created_at + 'Z').toLocaleString() : '—';
+      html += `<tr>
+        <td>${tx.type || '—'}</td>
+        <td class="${cls}">${sign}${fmt(Math.abs(tx.amount_cents))}</td>
+        <td>#${tx.transaction_id}</td>
+        <td>${time}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<p class="tx-empty" style="color:var(--error)">Failed to load: ${e.message}</p>`;
+  }
+}
+
+// ---- Init ----
+loadAccounts();
+</script>
+</body>
+</html>
