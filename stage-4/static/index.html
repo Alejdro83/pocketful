@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pocketful</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+  --border: #30363d; --text: #e6edf3; --text2: #8b949e;
+  --green: #3fb950; --red: #f85149; --blue: #58a6ff;
+  --radius: 8px; --shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+a { color:var(--blue); text-decoration:none; }
+input, select, button, textarea { font:inherit; border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; background:var(--surface2); color:var(--text); width:100%; }
+button { cursor:pointer; background:var(--blue); color:#fff; border:none; font-weight:600; transition:opacity .2s; }
+button:hover { opacity:.85; }
+button:disabled { opacity:.5; cursor:not-allowed; }
+.container { max-width:480px; margin:0 auto; padding:16px; }
+nav { background:var(--surface); border-bottom:1px solid var(--border); padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+nav .brand { font-size:1.2em; font-weight:700; }
+nav .user-info { display:flex; align-items:center; gap:8px; font-size:.85em; }
+nav .user-info span[data-testid="current-handle"] { color:var(--text2); }
+.toast { position:fixed; top:16px; right:16px; padding:12px 20px; border-radius:var(--radius); color:#fff; z-index:1000; animation:slideIn .3s; max-width:90vw; }
+.toast.success { background:var(--green); }
+.toast.error { background:var(--red); }
+@keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:12px; }
+.balance-display { text-align:center; padding:24px; }
+.balance-display .amount { font-size:2.5em; font-weight:700; color:var(--green); }
+.balance-display .label { color:var(--text2); font-size:.85em; margin-top:4px; }
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; margin-bottom:4px; font-size:.85em; color:var(--text2); }
+.error-msg { color:var(--red); font-size:.85em; margin-top:8px; min-height:1.2em; }
+.empty { text-align:center; color:var(--text2); padding:32px; }
+.feed-item { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); }
+.feed-item:last-child { border-bottom:none; }
+.feed-item .parties { font-size:.85em; color:var(--text2); }
+.feed-item .amount { font-weight:600; }
+.feed-item .amount.positive { color:var(--green); }
+.feed-item .amount.negative { color:var(--red); }
+.feed-item .note { font-size:.8em; color:var(--text2); margin-top:2px; }
+.request-item { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); gap:8px; flex-wrap:wrap; }
+.request-item .actions { display:flex; gap:6px; }
+.request-item .actions button { padding:6px 12px; font-size:.8em; width:auto; }
+.badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:.75em; font-weight:600; }
+.badge.pending { background:#d29922; color:#000; }
+.badge.paid { background:var(--green); color:#000; }
+.badge.declined { background:var(--red); color:#fff; }
+.badge.cancelled { background:var(--text2); color:#000; }
+.tab-bar { display:flex; gap:4px; margin-bottom:12px; }
+.tab-bar button { flex:1; background:var(--surface2); color:var(--text2); border:1px solid var(--border); padding:8px; font-size:.85em; }
+.tab-bar button.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+.toast { position:fixed; top:16px; right:16px; padding:12px 20px; border-radius:var(--radius); color:#fff; z-index:1000; animation:slideIn .3s; }
+.split-result .shares { margin:8px 0; }
+.split-result .share-item { display:flex; justify-content:space-between; padding:4px 0; font-size:.9em; }
+.split-result .requests-created { margin-top:8px; font-size:.85em; color:var(--text2); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const API = '';
+let state = { token: localStorage.getItem('token'), user: null, route: '' };
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function uuid() { return crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2); }
+
+function formatAmount(minor, currency, minorUnits) {
+  if (minorUnits === 0) return minor + ' ' + currency;
+  const major = minor / Math.pow(10, minorUnits);
+  return major.toFixed(minorUnits) + ' ' + currency;
+}
+
+function toMinorUnits(decimal, minorUnits) {
+  if (minorUnits === 0) return parseInt(decimal);
+  const parts = decimal.split('.');
+  if (parts.length === 2 && parts[1].length > minorUnits) return null;
+  return Math.round(parseFloat(decimal) * Math.pow(10, minorUnits));
+}
+
+async function api(path, opts={}) {
+  const headers = { 'Content-Type': 'application/json', ...opts.headers };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
+  const res = await fetch(API + path, { ...opts, headers });
+  const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
+  if (!res.ok) {
+    const code = data?.error?.code || 'error';
+    const msg = data?.error?.message || 'Request failed';
+    throw { code, message: msg, status: res.status };
+  }
+  return { status: res.status, data };
+}
+
+function navigate(route) {
+  window.location.hash = route;
+}
+
+async function loadUser() {
+  if (!state.token) return null;
+  try {
+    const { data } = await api('/me');
+    state.user = data;
+    return data;
+  } catch { state.token = null; localStorage.removeItem('token'); return null; }
+}
+
+function renderNav() {
+  if (!state.user) return '';
+  return `<nav>
+    <a href="#/" class="brand">💰 Pocketful</a>
+    <div class="user-info">
+      <span data-testid="current-user">${state.user.display_name}</span>
+      <span data-testid="current-handle">${state.user.handle}</span>
+      <button data-testid="logout-button" onclick="logout()" style="width:auto;padding:6px 12px;font-size:.8em">Logout</button>
+    </div>
+  </nav>`;
+}
+
+function logout() {
+  state.token = null; state.user = null;
+  localStorage.removeItem('token');
+  navigate('/login');
+}
+
+// --- Pages ---
+
+function renderLogin() {
+  return `<div class="container" style="margin-top:40px">
+    <h2 style="margin-bottom:16px">Login</h2>
+    <div class="form-group"><label>Email</label><input data-testid="login-email" id="login-email" type="email"></div>
+    <div class="form-group"><label>Password</label><input data-testid="login-password" id="login-password" type="password"></div>
+    <button data-testid="login-submit" onclick="doLogin()">Login</button>
+    <div data-testid="auth-error" id="auth-error" class="error-msg"></div>
+    <p style="margin-top:12px;font-size:.85em">No account? <a href="#/signup">Sign up</a></p>
+  </div>`;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('auth-error');
+  try {
+    const { data } = await api('/auth/login', { method:'POST', body: JSON.stringify({email,password}) });
+    state.token = data.token; state.user = { user_id: data.user_id, display_name: data.display_name };
+    localStorage.setItem('token', data.token);
+    navigate('/');
+  } catch(e) { errEl.textContent = e.message; }
+}
+
+function renderSignup() {
+  return `<div class="container" style="margin-top:40px">
+    <h2 style="margin-bottom:16px">Sign Up</h2>
+    <div class="form-group"><label>Email</label><input data-testid="signup-email" id="signup-email" type="email"></div>
+    <div class="form-group"><label>Password</label><input data-testid="signup-password" id="signup-password" type="password"></div>
+    <div class="form-group"><label>Display Name</label><input data-testid="signup-display-name" id="signup-display-name"></div>
+    <button data-testid="signup-submit" onclick="doSignup()">Sign Up</button>
+    <div data-testid="auth-error" id="auth-error" class="error-msg"></div>
+    <p style="margin-top:12px;font-size:.85em">Have an account? <a href="#/login">Login</a></p>
+  </div>`;
+}
+
+async function doSignup() {
+  const email = document.getElementById('signup-email').value;
+  const password = document.getElementById('signup-password').value;
+  const display_name = document.getElementById('signup-display-name').value;
+  const errEl = document.getElementById('auth-error');
+  try {
+    const { data } = await api('/auth/signup', { method:'POST', body: JSON.stringify({email,password,display_name}) });
+    state.token = data.token; state.user = { user_id: data.user_id, display_name: data.display_name };
+    localStorage.setItem('token', data.token);
+    navigate('/');
+  } catch(e) { errEl.textContent = e.message; }
+}
+
+async function renderHome() {
+  if (!state.user) { await loadUser(); if (!state.user) { navigate('/login'); return; } }
+  const app = document.getElementById('app');
+  app.innerHTML = renderNav() + '<div class="container" id="home-content"><p class="empty">Loading...</p></div>';
+  
+  try {
+    const [meRes, actRes] = await Promise.all([api('/me'), api('/activity?limit=50')]);
+    const me = meRes.data; const acts = actRes.data;
+    const mu = me.minor_units || 2;
+    const currency = me.currency || 'EUR';
+    
+    document.getElementById('home-content').innerHTML = `
+      <div class="card balance-display">
+        <div class="amount" data-testid="wallet-balance" data-amount="${me.balance}">${formatAmount(me.balance, currency, mu)}</div>
+        <div class="label">Available Balance</div>
+      </div>
+      
+      <div class="card">
+        <h3 style="margin-bottom:12px">Send Money</h3>
+        <div class="form-group"><label>To Handle</label><input data-testid="pay-handle" id="pay-handle" placeholder="username"></div>
+        <div class="form-group"><label>Amount</label><input data-testid="pay-amount" id="pay-amount" type="text" inputmode="decimal" placeholder="0.00"></div>
+        <div class="form-group"><label>Note (optional)</label><input data-testid="pay-note" id="pay-note" placeholder="What's it for?"></div>
+        <div class="form-group"><label>Visibility</label>
+          <select data-testid="pay-visibility" id="pay-visibility"><option value="public">Public</option><option value="private">Private</option></select>
+        </div>
+        <button data-testid="pay-submit" id="pay-submit" onclick="doPay()">Send Money</button>
+        <div data-testid="pay-error" id="pay-error" class="error-msg"></div>
+      </div>
+      
+      <div class="card">
+        <h3 style="margin-bottom:12px">Request Money</h3>
+        <div class="form-group"><label>From Handle</label><input data-testid="request-handle" id="req-handle" placeholder="username"></div>
+        <div class="form-group"><label>Amount</label><input data-testid="request-amount" id="req-amount" type="text" inputmode="decimal" placeholder="0.00"></div>
+        <div class="form-group"><label>Note (optional)</label><input data-testid="request-note" id="req-note" placeholder="What's it for?"></div>
+        <button data-testid="request-submit" onclick="doRequest()">Request Money</button>
+        <div data-testid="request-error" id="req-error" class="error-msg"></div>
+      </div>
+      
+      <div class="card">
+        <h3 style="margin-bottom:12px">Activity</h3>
+        <div data-testid="activity-list" id="activity-list"></div>
+      </div>
+    `;
+    
+    renderActivity(acts.payments, currency, mu);
+  } catch(e) {
+    document.getElementById('home-content').innerHTML = `<p class="empty">Error loading: ${e.message}</p>`;
+  }
+}
+
+function renderActivity(payments, currency, mu) {
+  const el = document.getElementById('activity-list');
+  if (!payments || payments.length === 0) {
+    el.innerHTML = '<div data-testid="empty-activity" class="empty">No activity yet</div>';
+    return;
+  }
+  el.innerHTML = payments.map(p => {
+    const isIncoming = p.to_user_id === state.user.user_id;
+    const sign = isIncoming ? '+' : '-';
+    const cls = isIncoming ? 'positive' : 'negative';
+    return `<div class="feed-item" data-testid="activity-item-${p.payment_id}" data-visibility="${p.visibility}">
+      <div>
+        <div data-testid="activity-parties-${p.payment_id}" class="parties">${p.from_handle} → ${p.to_handle}</div>
+        <div data-testid="activity-note-${p.payment_id}" class="note">${p.note || ''}</div>
+      </div>
+      <div data-testid="activity-amount-${p.payment_id}" class="amount ${cls}">${sign}${formatAmount(p.amount, currency, mu)}</div>
+    </div>`;
+  }).join('');
+}
+
+async function doPay() {
+  const to_handle = document.getElementById('pay-handle').value;
+  const amountStr = document.getElementById('pay-amount').value;
+  const note = document.getElementById('pay-note').value;
+  const visibility = document.getElementById('pay-visibility').value;
+  const errEl = document.getElementById('pay-error');
+  errEl.textContent = '';
+  
+  const amount = toMinorUnits(amountStr, state.user?.minor_units ?? 2);
+  if (amount === null || amount <= 0) { errEl.textContent = 'Invalid amount'; return; }
+  
+  const btn = document.getElementById('pay-submit');
+  btn.disabled = true;
+  try {
+    await api('/payments', { method:'POST', idempotencyKey: uuid(), body: JSON.stringify({to_handle, amount, note, visibility}) });
+    toast('Payment sent!');
+    renderHome();
+  } catch(e) { errEl.textContent = e.message; }
+  btn.disabled = false;
+}
+
+async function doRequest() {
+  const payer_handle = document.getElementById('req-handle').value;
+  const amountStr = document.getElementById('req-amount').value;
+  const note = document.getElementById('req-note').value;
+  const errEl = document.getElementById('req-error');
+  errEl.textContent = '';
+  
+  const amount = toMinorUnits(amountStr, state.user?.minor_units ?? 2);
+  if (amount === null || amount <= 0) { errEl.textContent = 'Invalid amount'; return; }
+  
+  try {
+    await api('/requests', { method:'POST', idempotencyKey: uuid(), body: JSON.stringify({payer_handle, amount, note}) });
+    toast('Request sent!');
+    document.getElementById('req-handle').value = '';
+    document.getElementById('req-amount').value = '';
+    document.getElementById('req-note').value = '';
+  } catch(e) { errEl.textContent = e.message; }
+}
+
+async function renderRequests() {
+  if (!state.user) { await loadUser(); if (!state.user) { navigate('/login'); return; } }
+  const app = document.getElementById('app');
+  app.innerHTML = renderNav() + `<div class="container">
+    <h2 style="margin:16px 0 12px">Requests</h2>
+    <div class="tab-bar">
+      <button class="active" onclick="switchReqTab('all',this)">All</button>
+      <button onclick="switchReqTab('incoming',this)">Incoming</button>
+      <button onclick="switchReqTab('outgoing',this)">Outgoing</button>
+    </div>
+    <div id="requests-list"><p class="empty">Loading...</p></div>
+  </div>`;
+  loadRequests();
+}
+
+async function switchReqTab(dir, btn) {
+  document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadRequests(dir === 'all' ? '' : dir);
+}
+
+async function loadRequests(direction='') {
+  const el = document.getElementById('requests-list');
+  try {
+    const qs = direction ? `?direction=${direction}` : '';
+    const { data } = await api('/requests' + qs);
+    if (!data.requests || data.requests.length === 0) {
+      el.innerHTML = '<div class="empty">No requests</div>';
+      return;
+    }
+    const meRes = await api('/me');
+    const mu = meRes.data.minor_units || 2;
+    const currency = meRes.data.currency || 'EUR';
+    
+    el.innerHTML = data.requests.map(r => {
+      const isPayer = r.payer_id === state.user.user_id;
+      const actions = [];
+      if (r.status === 'pending' && isPayer) {
+        actions.push(`<button data-testid="request-pay-${r.request_id}" onclick="payRequest('${r.request_id}')" style="background:var(--green)">Pay</button>`);
+        actions.push(`<button data-testid="request-decline-${r.request_id}" onclick="declineRequest('${r.request_id}')" style="background:var(--red)">Decline</button>`);
+      }
+      if (r.status === 'pending' && !isPayer) {
+        actions.push(`<button data-testid="request-cancel-${r.request_id}" onclick="cancelRequest('${r.request_id}')" style="background:var(--text2)">Cancel</button>`);
+      }
+      return `<div class="request-item" data-testid="request-item-${r.request_id}">
+        <div>
+          <div>${r.requester_handle} → ${r.payer_handle}</div>
+          <div style="font-size:.85em;color:var(--text2)">${formatAmount(r.amount, currency, mu)} ${r.note ? '· '+r.note : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge ${r.status}" data-testid="request-status-${r.request_id}">${r.status}</span>
+          <div class="actions">${actions.join('')}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = `<div class="empty">Error: ${e.message}</div>`; }
+}
+
+async function payRequest(reqId) {
+  try {
+    await api(`/requests/${reqId}/pay`, { method:'POST', idempotencyKey: uuid(), body: JSON.stringify({visibility:'public'}) });
+    toast('Request paid!');
+    loadRequests();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function declineRequest(reqId) {
+  try {
+    await api(`/requests/${reqId}/decline`, { method:'POST' });
+    toast('Request declined');
+    loadRequests();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function cancelRequest(reqId) {
+  try {
+    await api(`/requests/${reqId}/cancel`, { method:'POST' });
+    toast('Request cancelled');
+    loadRequests();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function renderSplit() {
+  if (!state.user) { await loadUser(); if (!state.user) { navigate('/login'); return; } }
+  const app = document.getElementById('app');
+  app.innerHTML = renderNav() + `<div class="container">
+    <div class="card" style="margin-top:16px">
+      <h3 style="margin-bottom:12px">Split a Bill</h3>
+      <div class="form-group"><label>Total Amount</label><input data-testid="split-amount" id="split-amount" type="text" inputmode="decimal" placeholder="0.00"></div>
+      <div class="form-group"><label>Participants (comma-separated handles)</label><input data-testid="split-participants" id="split-participants" placeholder="alice, bob, charlie"></div>
+      <div class="form-group"><label>Note (optional)</label><input data-testid="split-note" id="split-note" placeholder="What's it for?"></div>
+      <button data-testid="split-submit" onclick="doSplit()">Split</button>
+      <div data-testid="split-result" id="split-result"></div>
+    </div>
+  </div>`;
+}
+
+async function doSplit() {
+  const amountStr = document.getElementById('split-amount').value;
+  const participantsStr = document.getElementById('split-participants').value;
+  const note = document.getElementById('split-note').value;
+  const resultEl = document.getElementById('split-result');
+  
+  const amount = toMinorUnits(amountStr, state.user?.minor_units ?? 2);
+  if (amount === null || amount <= 0) { resultEl.innerHTML = '<div class="error-msg">Invalid amount</div>'; return; }
+  
+  const participant_handles = participantsStr.split(',').map(s => s.trim()).filter(Boolean);
+  if (participant_handles.length === 0) { resultEl.innerHTML = '<div class="error-msg">Need at least one participant</div>'; return; }
+  
+  try {
+    const { data } = await api('/splits', { method:'POST', idempotencyKey: uuid(), body: JSON.stringify({amount, participant_handles, note}) });
+    const mu = state.user?.minor_units ?? 2;
+    const currency = state.user?.currency || 'EUR';
+    resultEl.innerHTML = `<div class="split-result card" style="margin-top:12px">
+      <h4>Split Created</h4>
+      <div class="shares">
+        ${data.shares.map(s => `<div class="share-item"><span>${s.handle}</span><span>${formatAmount(s.amount, currency, mu)}</span></div>`).join('')}
+      </div>
+      <div class="requests-created">${data.requests?.length || 0} request(s) created</div>
+    </div>`;
+    toast('Split created!');
+  } catch(e) { resultEl.innerHTML = `<div class="error-msg">${e.message}</div>`; }
+}
+
+// --- Router ---
+async function render() {
+  const hash = window.location.hash.slice(1) || '/';
+  state.route = hash;
+  
+  if (hash === '/login') { document.getElementById('app').innerHTML = renderLogin(); return; }
+  if (hash === '/signup') { document.getElementById('app').innerHTML = renderSignup(); return; }
+  if (!state.token) { navigate('/login'); return; }
+  
+  if (hash === '/' || hash === '') { await renderHome(); return; }
+  if (hash === '/requests') { await renderRequests(); return; }
+  if (hash === '/split') { await renderSplit(); return; }
+  
+  document.getElementById('app').innerHTML = renderNav() + '<div class="container"><p class="empty">Page not found</p></div>';
+}
+
+window.addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>
