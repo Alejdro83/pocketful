@@ -72,6 +72,10 @@ curl http://localhost:8080/health
 # → {"status":"ok"}
 ```
 
+### Platform
+
+**Web application** — a FastAPI backend that also serves the browser UI, packaged as a single Docker image (SQLite inside the container, no external services). After `docker run`, open <http://localhost:8080> for the UI, or call the REST API on the same port.
+
 ### API Example
 
 ```bash
