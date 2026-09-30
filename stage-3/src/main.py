@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, Response, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.auth import clear_tokens, create_user, login_user, verify_token
+from src.db.schema import init_db
 from src.db.export_import import export_state, import_state
 from src.db.exceptions import IdempotencyKeyReuse, InsufficientFunds, SelfPayment
 from src.db.idempotency import check_idempotency, save_idempotency
@@ -51,6 +52,7 @@ _config: dict = {"currency": "EUR", "minor_units": 2}
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    init_db()
     yield
 
 
